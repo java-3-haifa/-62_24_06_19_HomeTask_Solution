@@ -5,9 +5,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.telran.hometask61solution.controller.dto.*;
 import com.telran.hometask61solution.repository.TopicRepository;
 import com.telran.hometask61solution.repository.entity.CommentEntity;
+import com.telran.hometask61solution.repository.exceptions.RepositoryException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -20,45 +23,39 @@ public class CommentController {
     ObjectMapper mapper;
 
     @PostMapping("comment")
-    public ResponseEntity<String> addComment(@RequestBody AddCommentDto comment){
+    public FullCommentDto addComment(@RequestBody AddCommentDto comment){
         FullCommentDto fullCommentDto = FullCommentDto.fullCommentBuilder()
                 .id(UUID.randomUUID().toString())
                 .author(comment.getAuthor())
                 .date(LocalDateTime.now())
                 .message(comment.getMessage())
                 .build();
-        repository.addComment(UUID.fromString(comment.getTopicId()),map(fullCommentDto));
-
         try {
-            return ResponseEntity.ok(mapper.writeValueAsString(fullCommentDto));
-        } catch (JsonProcessingException e) {
-            e.printStackTrace();
-            throw new RuntimeException("Parse exception");
+            repository.addComment(UUID.fromString(comment.getTopicId()), map(fullCommentDto));
+            return fullCommentDto;
+        }catch (RepositoryException ex){
+            throw new ResponseStatusException(HttpStatus.CONFLICT,ex.getMessage());
         }
     }
 
 
     @DeleteMapping("comment")
-    public ResponseEntity<String> removeComment(@RequestBody RemoveCommentDto body){
-        repository.removeComment(UUID.fromString(body.getTopicId()),UUID.fromString(body.getCommentId()));
-        SuccessResponseDto response = new SuccessResponseDto("Comment with id:" + body.getCommentId() + " was removed");
+    public SuccessResponseDto removeComment(@RequestBody RemoveCommentDto body){
         try {
-            return ResponseEntity.ok(mapper.writeValueAsString(response));
-        } catch (JsonProcessingException e) {
-            e.printStackTrace();
-            throw new RuntimeException("Parse error");
+            repository.removeComment(UUID.fromString(body.getTopicId()), UUID.fromString(body.getCommentId()));
+            return new SuccessResponseDto("Comment with id: " + body.getCommentId() + " was removed");
+        }catch (RepositoryException ex){
+            throw new ResponseStatusException(HttpStatus.CONFLICT,ex.getMessage());
         }
     }
 
     @PutMapping("comment")
-    public ResponseEntity<String> updateComment(@RequestBody UpdateCommentDto body){
-        repository.updateComment(UUID.fromString(body.getTopicId()),map(body));
-        SuccessResponseDto response = new SuccessResponseDto("Comment with id: " + body.getId() + " was updated");
+    public SuccessResponseDto updateComment(@RequestBody UpdateCommentDto body){
         try {
-            return ResponseEntity.ok(mapper.writeValueAsString(response));
-        } catch (JsonProcessingException e) {
-            e.printStackTrace();
-            throw new RuntimeException("Parse error");
+            repository.updateComment(UUID.fromString(body.getTopicId()), map(body));
+            return new SuccessResponseDto("Comment with id: " + body.getId() + " was updated");
+        }catch (RepositoryException ex){
+            throw new ResponseStatusException(HttpStatus.CONFLICT, ex.getMessage());
         }
     }
 

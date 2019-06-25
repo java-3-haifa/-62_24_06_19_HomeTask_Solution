@@ -6,9 +6,12 @@ import com.telran.hometask61solution.controller.dto.*;
 import com.telran.hometask61solution.repository.TopicRepository;
 import com.telran.hometask61solution.repository.entity.CommentEntity;
 import com.telran.hometask61solution.repository.entity.TopicEntity;
+import com.telran.hometask61solution.repository.exceptions.RepositoryException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -24,7 +27,7 @@ public class TopicController {
     TopicRepository repository;
 
     @PostMapping("topic")
-    public ResponseEntity<String> addTopic(@RequestBody BaseTopicDto topic){
+    public TopicResponseDto addTopic(@RequestBody BaseTopicDto topic){
         TopicResponseDto response = TopicResponseDto.topicResponseBuilder()
                 .author(topic.getAuthor())
                 .title(topic.getTitle())
@@ -32,39 +35,30 @@ public class TopicController {
                 .date(LocalDateTime.now())
                 .id(UUID.randomUUID().toString())
                 .build();
-
         try {
             repository.addTopic(map(response));
-            return ResponseEntity.ok(mapper.writeValueAsString(response));
-        } catch (JsonProcessingException e) {
-            e.printStackTrace();
-            throw new RuntimeException("Parse error",e);
+            return  response;
+        }catch (RepositoryException ex){
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,ex.getMessage());
         }
     }
 
     @GetMapping("topic")
-    public ResponseEntity<String> getAllTopics(){
-        List<FullTopicDto> response = StreamSupport.stream(repository.getAllTopics().spliterator(),false)
+    public List<FullTopicDto> getAllTopics(){
+        return StreamSupport.stream(repository.getAllTopics().spliterator(),false)
                 .map(this::map)
                 .collect(Collectors.toList());
-        try {
-            return ResponseEntity.ok(mapper.writeValueAsString(response));
-        } catch (JsonProcessingException e) {
-            e.printStackTrace();
-            throw new RuntimeException("Parse error",e);
-        }
     }
 
     @DeleteMapping("topic/{topicId}")
-    public ResponseEntity<String> removeTopicById(@PathVariable("topicId") String topicId){
-        repository.removeTopic(UUID.fromString(topicId));
-        SuccessResponseDto response = new SuccessResponseDto("Topic with id: " + topicId + " was removed!");
+    public SuccessResponseDto removeTopicById(@PathVariable("topicId") String topicId){
         try {
-            return ResponseEntity.ok(mapper.writeValueAsString(response));
-        } catch (JsonProcessingException e) {
-            e.printStackTrace();
-            throw new RuntimeException("Parse error",e);
+            repository.removeTopic(UUID.fromString(topicId));
+            return new SuccessResponseDto("Topic with id: " + topicId + " was removed");
+        }catch (RepositoryException ex){
+            throw new ResponseStatusException(HttpStatus.CONFLICT,ex.getMessage());
         }
+
     }
 
     private TopicEntity map(TopicResponseDto dto){
